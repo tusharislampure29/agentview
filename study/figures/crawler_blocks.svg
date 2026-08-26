@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="406" viewBox="0 0 720 406" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+<rect width="720" height="406" fill="white"/>
+<text x="240" y="34" font-size="20" font-weight="700" fill="#1c2330">How often each AI crawler is blocked</text>
+<text x="240" y="56" font-size="13" fill="#5b6472">share of sites that returned a 4xx/5xx to this crawler but not to a human</text>
+<text x="228" y="95" text-anchor="end" font-size="13" fill="#1c2330">GPTBot (OpenAI indexer)</text>
+<rect x="240" y="74" width="410" height="30" rx="5" fill="#eef0f3"/>
+<rect x="240" y="74" width="410" height="30" rx="5" fill="#e8833a"/>
+<text x="660" y="95" font-size="13" font-weight="600" fill="#1c2330">13.5%  (71/526)</text>
+<text x="228" y="139" text-anchor="end" font-size="13" fill="#1c2330">ChatGPT-User (OpenAI live fetch)</text>
+<rect x="240" y="118" width="410" height="30" rx="5" fill="#eef0f3"/>
+<rect x="240" y="118" width="318" height="30" rx="5" fill="#e8833a"/>
+<text x="660" y="139" font-size="13" font-weight="600" fill="#1c2330">10.5%  (55/526)</text>
+<text x="228" y="183" text-anchor="end" font-size="13" fill="#1c2330">OAI-SearchBot (OpenAI search)</text>
+<rect x="240" y="162" width="410" height="30" rx="5" fill="#eef0f3"/>
+<rect x="240" y="162" width="294" height="30" rx="5" fill="#e8833a"/>
+<text x="660" y="183" font-size="13" font-weight="600" fill="#1c2330">9.7%  (51/526)</text>
+<text x="228" y="227" text-anchor="end" font-size="13" fill="#1c2330">ClaudeBot (Anthropic indexer)</text>
+<rect x="240" y="206" width="410" height="30" rx="5" fill="#eef0f3"/>
+<rect x="240" y="206" width="397" height="30" rx="5" fill="#e8833a"/>
+<text x="660" y="227" font-size="13" font-weight="600" fill="#1c2330">13.1%  (69/526)</text>
+<text x="228" y="271" text-anchor="end" font-size="13" fill="#1c2330">Claude-User (Anthropic live fetch)</text>
+<rect x="240" y="250" width="410" height="30" rx="5" fill="#eef0f3"/>
+<rect x="240" y="250" width="264" height="30" rx="5" fill="#e8833a"/>
+<text x="660" y="271" font-size="13" font-weight="600" fill="#1c2330">8.7%  (46/526)</text>
+<text x="228" y="315" text-anchor="end" font-size="13" fill="#1c2330">PerplexityBot (indexer)</text>
+<rect x="240" y="294" width="410" height="30" rx="5" fill="#eef0f3"/>
+<rect x="240" y="294" width="334" height="30" rx="5" fill="#e8833a"/>
+<text x="660" y="315" font-size="13" font-weight="600" fill="#1c2330">11.0%  (58/526)</text>
+<text x="228" y="359" text-anchor="end" font-size="13" fill="#1c2330">Perplexity-User (live fetch)</text>
+<rect x="240" y="338" width="410" height="30" rx="5" fill="#eef0f3"/>
+<rect x="240" y="338" width="294" height="30" rx="5" fill="#e8833a"/>
+<text x="660" y="359" font-size="13" font-weight="600" fill="#1c2330">9.7%  (51/526)</text>
+</svg>

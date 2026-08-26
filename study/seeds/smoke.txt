@@ -1,0 +1,12 @@
+# Small smoke-test seed list — a mix of sites, some known to treat AI crawlers
+# differently (blocks, paywalls, edge rules). Not a study sample, just a sanity run.
+https://example.com
+https://en.wikipedia.org/wiki/Prompt_injection
+https://www.reddit.com/r/programming/
+https://www.nytimes.com
+https://www.amazon.com
+https://github.com
+https://www.cloudflare.com
+https://stackoverflow.com
+https://medium.com
+https://news.ycombinator.com

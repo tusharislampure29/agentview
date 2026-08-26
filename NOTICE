@@ -1,0 +1,15 @@
+agentview
+Copyright 2026 Tushar Islampure
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+"Agent cloaking" / differential serving to AI crawlers was demonstrated as a
+proof-of-concept by SPLX (the "AI-targeted cloaking" Atlas demo) and studied in
+"The Parallel-Poisoned Web" (arXiv:2509.00124). The wild indirect-prompt-injection
+census (arXiv:2604.27202) measured injection at scale under a single user-agent.
+agentview's contribution is the first prevalence measurement of *agent-directed
+content divergence* — comparing the human view and the AI-crawler view of the same
+URLs side by side.
+
+Site rankings for the study seed list come from the Tranco list
+(https://tranco-list.eu), Le Pochat et al., NDSS 2019.

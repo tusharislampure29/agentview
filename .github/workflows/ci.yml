@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash        # bash exists on all three runners -> one command set
+    strategy:
+      fail-fast: false
+      matrix:
+        # Full Python range on Linux; a smoke run on Windows and macOS so we
+        # actually prove cross-platform (stdout encoding, path handling, etc.).
+        include:
+          - { os: ubuntu-latest,  python-version: "3.10" }
+          - { os: ubuntu-latest,  python-version: "3.11" }
+          - { os: ubuntu-latest,  python-version: "3.12" }
+          - { os: windows-latest, python-version: "3.12" }
+          - { os: macos-latest,   python-version: "3.12" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[demo,dev]"
+      - name: Run tests
+        run: pytest -q
+      - name: Smoke test the CLI (offline)
+        run: |
+          agentview stats study/smoke_results.jsonl
+          python -c "from agentview.demo.sample import sample_report; assert sample_report().verdict.value == 'adversarial'"
