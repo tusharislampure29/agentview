@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.1.1] — 2026-09-01
+
+Robustness fixes from an end-to-end real-user QA pass.
+
+### Fixed
+- **UTF-8 BOM in input files.** A URL list or dataset saved by Notepad or
+  PowerShell (`Set-Content -Encoding utf8`) carries a leading BOM; reading it as
+  plain utf-8 glued the BOM onto the first entry, so `scan`/`watch` silently failed
+  the first URL and `stats` reported "0 analyzed". Input files are now read as
+  `utf-8-sig`.
+- **Bare-host URLs on single-URL commands.** `agentview check example.com` (no
+  scheme) returned ERROR; `check`, `guard`, `why`, and `efficacy` now prepend
+  `https://` like `scan`/`watch` already did.
+- **Stale `--render` install hint** pointed at `agentview[render]`; corrected to
+  `agentview-cli[render]`.
+
+### Changed
+- 100 offline tests (added CLI input-parsing coverage).
+
 ## [0.1.0] — 2026-08-26
 
 First public release.

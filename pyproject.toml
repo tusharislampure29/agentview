@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 # distribution is published as `agentview-cli`. The import package and the console
 # command are both still `agentview`.
 name = "agentview-cli"
-version = "0.1.0"
+version = "0.1.1"
 description = "See the web the way an AI agent sees it — and measure where sites serve agents a different, sometimes poisoned, page."
 readme = "README.md"
 requires-python = ">=3.10"

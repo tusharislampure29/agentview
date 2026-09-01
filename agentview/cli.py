@@ -49,6 +49,13 @@ def _force_utf8() -> None:
             pass
 
 
+def _normalize_url(url: str) -> str:
+    """Accept a bare host (``example.com``) as well as a full URL — a user typing
+    `agentview check example.com` should just work, like scan/watch already do."""
+    url = url.strip()
+    return url if url.startswith(("http://", "https://")) else "https://" + url
+
+
 def _print_report(report: SiteReport) -> None:
     print(f"\n  agentview — {report.url}")
     print(f"  verdict: {_VERDICT_LABEL[report.verdict]}\n")
@@ -89,9 +96,12 @@ def _print_report(report: SiteReport) -> None:
 
 def _load_urls(path: str) -> list[str]:
     urls: list[str] = []
-    with open(path, encoding="utf-8") as fh:
+    # utf-8-sig: a URL list saved by Notepad or PowerShell often has a UTF-8 BOM;
+    # reading as plain utf-8 would glue "﻿" onto the first URL and silently
+    # break it. utf-8-sig strips a leading BOM and is identical otherwise.
+    with open(path, encoding="utf-8-sig") as fh:
         for line in fh:
-            line = line.strip()
+            line = line.strip().lstrip("﻿")
             if not line or line.startswith("#"):
                 continue
             urls.append(line if line.startswith("http") else "https://" + line)
@@ -122,8 +132,9 @@ def _write_html_report(report: SiteReport, url: str, path: str) -> None:
 
 
 def cmd_check(args: argparse.Namespace) -> int:
+    url = _normalize_url(args.url)
     renderer = _resolve_renderer(args)
-    report = analyze_url(args.url, timeout=args.timeout,
+    report = analyze_url(url, timeout=args.timeout,
                          include_agent_files=not args.skip_agent_files,
                          renderer=renderer)
     if args.format == "json":
@@ -131,7 +142,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     else:
         _print_report(report)
     if args.html:
-        _write_html_report(report, args.url, args.html)
+        _write_html_report(report, url, args.html)
     return 0
 
 
@@ -163,12 +174,13 @@ def _print_guard(url: str, ident_label: str, fr, r) -> None:
 
 
 def cmd_guard(args: argparse.Namespace) -> int:
+    url = _normalize_url(args.url)
     ident = by_key(args.as_identity)
     if ident is None:
         print(f"\n  unknown identity '{args.as_identity}'. Options: "
               f"{', '.join(i.key for i in AI_IDENTITIES)}\n", file=sys.stderr)
         return 2
-    fetches = fetch_all_identities_sync(args.url, identities=[ident], timeout=args.timeout)
+    fetches = fetch_all_identities_sync(url, identities=[ident], timeout=args.timeout)
     fr = fetches[ident.key]
     if not fr.ok:
         print(f"\n  fetch failed ({fr.error})\n", file=sys.stderr)
@@ -182,10 +194,10 @@ def cmd_guard(args: argparse.Namespace) -> int:
         print(f"  wrote {r.clean_text_len} chars of clean text -> {args.output}", file=sys.stderr)
 
     if args.format == "json":
-        payload = {"url": args.url, "fetched_as": ident.key, **guard_result_to_dict(r)}
+        payload = {"url": url, "fetched_as": ident.key, **guard_result_to_dict(r)}
         print(json.dumps(payload, indent=2, ensure_ascii=False))
     elif not args.output:
-        _print_guard(args.url, ident.label, fr, r)
+        _print_guard(url, ident.label, fr, r)
     return 0
 
 
@@ -211,7 +223,7 @@ def _print_attribution(r) -> None:
 
 
 def cmd_why(args: argparse.Namespace) -> int:
-    r = attribute(args.url, crawler=args.crawler, timeout=args.timeout)
+    r = attribute(_normalize_url(args.url), crawler=args.crawler, timeout=args.timeout)
     if args.format == "json":
         print(json.dumps(attribution_to_dict(r), indent=2, ensure_ascii=False))
     else:
@@ -229,11 +241,12 @@ def _efficacy_inputs(args: argparse.Namespace) -> tuple[str, str, str]:
     ident = by_key(args.as_identity)
     if ident is None:
         raise SystemExit(f"unknown identity '{args.as_identity}'")
-    fetches = fetch_all_identities_sync(args.url, identities=[HUMAN, ident], timeout=args.timeout)
+    url = _normalize_url(args.url)
+    fetches = fetch_all_identities_sync(url, identities=[HUMAN, ident], timeout=args.timeout)
     human, ai = fetches[HUMAN.key], fetches[ident.key]
     if not human.ok or not ai.ok:
         raise SystemExit(f"fetch failed (human ok={human.ok}, {ident.key} ok={ai.ok})")
-    return (args.url, human.text, ai.text)
+    return (url, human.text, ai.text)
 
 
 def _print_efficacy(label: str, r) -> None:
@@ -357,7 +370,9 @@ def cmd_scan(args: argparse.Namespace) -> int:
 
 def _load_records(path: str) -> list[dict]:
     records: list[dict] = []
-    with open(path, encoding="utf-8") as fh:
+    # utf-8-sig so a hand-edited dataset saved with a BOM still parses (a BOM on
+    # the first line would otherwise make json.loads choke).
+    with open(path, encoding="utf-8-sig") as fh:
         for line in fh:
             line = line.strip()
             if line:

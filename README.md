@@ -4,7 +4,7 @@
 
 [![ci](https://github.com/tusharislampure29/agentview/actions/workflows/ci.yml/badge.svg)](https://github.com/tusharislampure29/agentview/actions)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-96%20passing-brightgreen)](tests/)
+[![tests](https://img.shields.io/badge/tests-100%20passing-brightgreen)](tests/)
 [![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![PyPI](https://img.shields.io/badge/PyPI-agentview--cli-blue)](https://pypi.org/project/agentview-cli/)
 [![Live demo](https://img.shields.io/badge/%F0%9F%A4%97%20Spaces-Live%20demo-yellow)](https://huggingface.co/spaces/tusharislampure29/agentview)

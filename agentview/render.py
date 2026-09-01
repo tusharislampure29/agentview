@@ -85,7 +85,7 @@ def is_available() -> bool:
 
 INSTALL_HINT = (
     'JS rendering needs Playwright + Chromium. Install with:\n'
-    '    pip install "agentview[render]"\n'
+    '    pip install "agentview-cli[render]"\n'
     '    python -m playwright install chromium'
 )
 

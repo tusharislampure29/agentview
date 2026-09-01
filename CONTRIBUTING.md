@@ -39,7 +39,7 @@ python -m agentview.demo      # http://127.0.0.1:8000
 
 ## Before you open a pull request
 
-- `pytest -q` passes (currently 96 tests, all offline — no network needed).
+- `pytest -q` passes (currently 100 tests, all offline — no network needed).
 - If you touch a detector, add or update a case in `tests/test_core.py` and keep
   the **differential** principle intact: a signal only counts if it's shown to the
   AI but *not* the human. That false-positive control is the whole credibility of
