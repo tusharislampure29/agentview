@@ -52,8 +52,9 @@ git push origin vX.Y.Z
 
 ## After publishing
 
-- `pip install agentview`, `pipx install agentview`, and `uvx agentview ...` go live
-  within a minute.
+- `pip install agentview-cli`, `pipx install agentview-cli`, and
+  `uvx --from agentview-cli agentview ...` go live within a minute. (The distribution
+  is `agentview-cli`; the command and import package are both `agentview`.)
 - The `[demo]` and `[render]` extras install on demand; `--render` additionally needs
   `python -m playwright install chromium`.
 - Versions are immutable on PyPI — you cannot re-upload the same version. Bump and

@@ -3,7 +3,10 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agentview"
+# The `agentview` name was already registered on PyPI (by an empty project), so the
+# distribution is published as `agentview-cli`. The import package and the console
+# command are both still `agentview`.
+name = "agentview-cli"
 version = "0.1.0"
 description = "See the web the way an AI agent sees it — and measure where sites serve agents a different, sometimes poisoned, page."
 readme = "README.md"

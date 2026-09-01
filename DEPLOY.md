@@ -46,7 +46,7 @@ Never point a public instance at a network that has anything private reachable f
 ### Locally
 
 ```bash
-pip install "agentview[demo]"
+pip install "agentview-cli[demo]"
 python -m agentview.demo            # http://127.0.0.1:8000
 ```
 

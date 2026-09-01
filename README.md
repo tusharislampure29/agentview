@@ -24,7 +24,7 @@ The result is one verdict per site on a spectrum:
 ## Try it in two seconds
 
 ```bash
-pip install "agentview[demo]"
+pip install "agentview-cli[demo]"
 python -m agentview.demo          # open http://127.0.0.1:8000
 ```
 
@@ -207,20 +207,24 @@ One human baseline and the seven documented AI user-agents, split into *indexers
 
 ## Install
 
+> Published on PyPI as **`agentview-cli`** (the bare `agentview` name was already
+> registered by an empty project). The command you run and the module you import are
+> both still `agentview`.
+
 **Run it without installing anything** (needs [`uv`](https://docs.astral.sh/uv/)):
 
 ```bash
-uvx agentview check https://en.wikipedia.org/wiki/Prompt_injection
+uvx --from agentview-cli agentview check https://en.wikipedia.org/wiki/Prompt_injection
 ```
 
 **Install the CLI** (engine is just `httpx` + `beautifulsoup4`):
 
 ```bash
-pipx install agentview        # isolated CLI on your PATH
+pipx install agentview-cli        # isolated CLI on your PATH
 # or
-pip install agentview                 # engine
-pip install "agentview[demo]"         # + the paste-a-URL web demo (fastapi + uvicorn)
-pip install "agentview[render]" && python -m playwright install chromium   # + the JS-rendered human baseline (--render)
+pip install agentview-cli                 # engine
+pip install "agentview-cli[demo]"         # + the paste-a-URL web demo (fastapi + uvicorn)
+pip install "agentview-cli[render]" && python -m playwright install chromium   # + the JS-rendered human baseline (--render)
 ```
 
 **From source** (for development):
