@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from difflib import SequenceMatcher
+from urllib.parse import urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
 
@@ -44,6 +45,22 @@ def ai_only_text(human_text: str, ai_text: str) -> str:
     return " ".join(s.strip() for s in extra if s.strip())
 
 
+def _canonical_url(u: str | None) -> str:
+    """Canonical form for comparing where two views *landed*, so trivial spelling
+    differences aren't mistaken for a redirect. Notably a raw HTTP client leaves a
+    root URL as ``https://x.com`` while a real browser reports ``https://x.com/`` —
+    same resource. We lowercase the scheme/host, treat an empty path as ``/``, and
+    drop the fragment (never sent to a server, so never a redirect signal). Path and
+    query are left intact — a genuine redirect to a different location still shows."""
+    if not u:
+        return ""
+    try:
+        s = urlsplit(u)
+    except ValueError:
+        return u
+    return urlunsplit((s.scheme.lower(), s.netloc.lower(), s.path or "/", s.query, ""))
+
+
 def divergence(human: FetchResult, ai: FetchResult) -> Divergence:
     human_len = max(len(human.text), 1)
     return Divergence(
@@ -51,5 +68,5 @@ def divergence(human: FetchResult, ai: FetchResult) -> Divergence:
         similarity=round(similarity(human.text, ai.text), 4),
         length_ratio=round(len(ai.text) / human_len, 4),
         status_differs=(human.status != ai.status),
-        redirect_differs=(human.final_url != ai.final_url),
+        redirect_differs=(_canonical_url(human.final_url) != _canonical_url(ai.final_url)),
     )

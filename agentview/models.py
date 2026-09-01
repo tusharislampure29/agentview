@@ -45,6 +45,7 @@ class FetchResult:
     text: str = ""            # normalized visible text
     content_length: int = 0
     error: str | None = None
+    rendered: bool = False    # True if this view is a JS-rendered DOM, not raw HTML
 
 
 class FindingType(str, Enum):

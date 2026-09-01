@@ -19,6 +19,7 @@ from .models import (
     DIVERGENCE_THRESHOLD, AgentFile, FetchResult, Finding, FindingType, Severity,
     SiteReport, Verdict,
 )
+from .render import Renderer, rendered_human_result
 
 # Human visible text shorter than this can't serve as a diff baseline: everything
 # in the AI view would look "AI-only" and every ordinary phrase would false-flag.
@@ -107,9 +108,32 @@ def _verdict(report: SiteReport, human: FetchResult | None, any_divergent: bool)
     return Verdict.IDENTICAL
 
 
+def _apply_render(url: str, fetches: dict[str, FetchResult], renderer: Renderer,
+                  timeout: float, notes: list[str]) -> dict[str, FetchResult]:
+    """Replace the raw-HTML human view with a JS-rendered one. On render failure we
+    keep the raw human baseline and record why — a render problem must never sink
+    the whole analysis."""
+    rendered = renderer(url, timeout)
+    if rendered.ok and rendered.text:
+        fetches = dict(fetches)
+        fetches["human"] = rendered_human_result(url, rendered)
+        notes.append("human view is a JS-rendered DOM (headless Chromium); "
+                     "AI views are raw HTML, as the crawlers consume them")
+    else:
+        why = rendered.error or "empty render"
+        notes.append(f"JS render unavailable ({why}); using raw-HTML human baseline")
+    return fetches
+
+
 def analyze_url(url: str, timeout: float = 20.0, include_agent_files: bool = True,
-                request_guard: Callable[[str], None] | None = None) -> SiteReport:
+                request_guard: Callable[[str], None] | None = None,
+                renderer: Renderer | None = None) -> SiteReport:
     fetches = fetch_all_identities_sync(url, timeout=timeout, request_guard=request_guard)
+    render_notes: list[str] = []
+    if renderer is not None:
+        fetches = _apply_render(url, fetches, renderer, timeout, render_notes)
     agent_files = (fetch_agent_files(url, timeout=min(timeout, 15.0), request_guard=request_guard)
                    if include_agent_files else [])
-    return analyze_fetches(url, fetches, agent_files)
+    report = analyze_fetches(url, fetches, agent_files)
+    report.notes = render_notes + report.notes
+    return report

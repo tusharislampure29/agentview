@@ -1,7 +1,10 @@
-"""Offline tests for the demo layer — the SSRF gate, the diff renderer, and the
-built-in synthetic sample. No server or network required.
+"""Offline tests for the demo layer — the SSRF gate, the diff renderer, the
+built-in synthetic sample, and the public-deployment hardening. No network required
+(the one HTTP path exercised is the built-in example, which never leaves the box).
 """
 from __future__ import annotations
+
+import asyncio
 
 from agentview.demo.app import _normalize, is_safe_public_url
 from agentview.demo.render import choose_ai_identity, diff_columns, render_result
@@ -65,3 +68,46 @@ def test_render_result_highlights_the_injection():
     assert 'class="ai-only"' in html
     assert "TurboShield" in html            # the injected brand shows in the AI column
     assert "class=\"cols\"" in html
+
+
+def test_security_headers_and_healthz():
+    from fastapi.testclient import TestClient
+
+    from agentview.demo.app import app
+    client = TestClient(app)
+    r = client.get("/healthz")
+    assert r.status_code == 200 and r.json() == {"ok": True}
+    # Strict CSP + nosniff on every response.
+    assert "default-src 'none'" in r.headers.get("content-security-policy", "")
+    assert r.headers.get("x-content-type-options") == "nosniff"
+
+
+def test_builtin_example_renders_without_network():
+    from fastapi.testclient import TestClient
+
+    from agentview.demo.app import app
+    client = TestClient(app)
+    r = client.get("/?demo=cloaking")     # the synthetic example — no outbound fetch
+    assert r.status_code == 200
+    assert "verdict-adversarial" in r.text
+    assert "TurboShield" in r.text
+
+
+def test_analyze_sheds_load_when_all_slots_busy(monkeypatch):
+    # With every concurrency slot held, a further analysis must bow out (None) rather
+    # than queue unboundedly — the public-mode load-shed. No network is touched.
+    from agentview.demo import app as demo_app
+
+    async def scenario():
+        acquired = 0
+        try:
+            for _ in range(demo_app._MAX_CONCURRENCY):
+                await demo_app._analysis_slots.acquire()
+                acquired += 1
+            monkeypatch.setattr(demo_app, "_BUSY_WAIT", 0.05)
+            return await demo_app._analyze("https://example.com")
+        finally:
+            for _ in range(acquired):
+                demo_app._analysis_slots.release()
+
+    assert asyncio.run(scenario()) is None

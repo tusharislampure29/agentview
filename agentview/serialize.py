@@ -21,7 +21,8 @@ def report_to_dict(report: SiteReport) -> dict:
         "fetches": {
             k: {"ok": v.ok, "status": v.status, "final_url": v.final_url,
                 "redirects": v.redirects, "bytes": v.content_length,
-                "elapsed_ms": v.elapsed_ms, "error": v.error}
+                "elapsed_ms": v.elapsed_ms, "error": v.error,
+                **({"rendered": True} if v.rendered else {})}
             for k, v in report.fetches.items()
         },
         "divergences": [vars(d) for d in report.divergences],

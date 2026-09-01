@@ -11,9 +11,17 @@ Defence in depth:
 A residual DNS-rebinding window remains (the guard resolves a name, then httpx
 resolves it again to connect); this demo is meant for local or trusted-network
 deployment. Each client IP is also rate-limited.
+
+For a public deployment, set ``AGENTVIEW_PUBLIC=1`` (see DEPLOY.md): it caps the
+number of concurrent analyses (each one fans out ~15 outbound requests), tightens
+the per-IP rate, and sheds load with a 503 rather than letting fan-out pile up. A
+strict Content-Security-Policy is sent on every response. Even so, exposing an
+arbitrary-URL fetcher to the internet carries the DNS-rebinding risk above; run it
+behind the platform's egress controls, or lock it to the built-in examples.
 """
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import os
 import socket
@@ -41,11 +49,47 @@ DEMO_TIMEOUT = 12.0
 # that, a client can spoof the header and defeat the rate limiter.
 _TRUST_XFF = os.environ.get("AGENTVIEW_TRUST_XFF") == "1"
 
+# Public-deployment hardening — opt in with AGENTVIEW_PUBLIC=1 (see DEPLOY.md).
+# A single analysis fans out ~15 outbound GETs, so an open instance needs a hard
+# ceiling on how many run at once and a tighter per-IP rate than a local run.
+_PUBLIC = os.environ.get("AGENTVIEW_PUBLIC") == "1"
+_MAX_CONCURRENCY = int(os.environ.get("AGENTVIEW_MAX_CONCURRENCY", "4" if _PUBLIC else "16"))
+_BUSY_WAIT = 3.0        # seconds to wait for a free analysis slot before shedding load
+_analysis_slots = asyncio.Semaphore(_MAX_CONCURRENCY)
+
 _RATE: dict[str, list[float]] = defaultdict(list)
 _RATE_WINDOW = 60.0
-_RATE_MAX = 12          # analyses per IP per minute
+_RATE_MAX = int(os.environ.get("AGENTVIEW_RATE_MAX", "6" if _PUBLIC else "12"))  # per IP / min
 _RATE_SWEEP_EVERY = 500
 _rate_calls = 0
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    """Lock the response down: the demo ships zero JavaScript and no remote assets,
+    so a strict CSP costs nothing and blocks a whole class of injection."""
+    resp = await call_next(request)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; "
+        "base-uri 'none'; frame-ancestors 'none'"
+    )
+    return resp
+
+
+async def _analyze(target: str):
+    """Run one analysis under the global concurrency cap. Returns ``None`` if every
+    slot is busy for longer than ``_BUSY_WAIT`` so the caller can shed load instead
+    of letting outbound fan-out pile up without bound."""
+    try:
+        await asyncio.wait_for(_analysis_slots.acquire(), timeout=_BUSY_WAIT)
+    except asyncio.TimeoutError:
+        return None
+    try:
+        return await run_in_threadpool(analyze_url, target, DEMO_TIMEOUT, True, _ssrf_guard)
+    finally:
+        _analysis_slots.release()
 
 
 class UnsafeTargetError(Exception):
@@ -128,7 +172,12 @@ async def index(request: Request, url: str | None = Query(default=None),
         return HTMLResponse(render_page(target, '<div class="verdict verdict-error">'
                                                 '<b>slow down</b> — rate limit reached, '
                                                 'try again in a minute.</div>'))
-    report = await run_in_threadpool(analyze_url, target, DEMO_TIMEOUT, True, _ssrf_guard)
+    report = await _analyze(target)
+    if report is None:
+        return HTMLResponse(render_page(target, '<div class="verdict verdict-error">'
+                                                '<b>server busy</b> — too many analyses in '
+                                                'flight, try again in a moment.</div>'),
+                            status_code=503)
     return HTMLResponse(render_page(target, render_result(report)))
 
 
@@ -141,7 +190,9 @@ async def api_check(request: Request, url: str = Query(...)):
         return JSONResponse({"error": why}, status_code=400)
     if not _rate_ok(_client_ip(request)):
         return JSONResponse({"error": "rate limit reached"}, status_code=429)
-    report = await run_in_threadpool(analyze_url, target, DEMO_TIMEOUT, True, _ssrf_guard)
+    report = await _analyze(target)
+    if report is None:
+        return JSONResponse({"error": "server busy, retry shortly"}, status_code=503)
     return JSONResponse(report_to_dict(report))
 
 

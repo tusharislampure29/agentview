@@ -13,6 +13,7 @@ from . import __version__
 from .analyze import analyze_url
 from .identities import AI_IDENTITIES
 from .models import DIVERGENCE_THRESHOLD, Severity, SiteReport, Verdict
+from .render import INSTALL_HINT, Renderer, is_available, render_with_playwright
 from .serialize import report_to_dict
 from .stats import summarize
 
@@ -84,17 +85,45 @@ def _load_urls(path: str) -> list[str]:
     return urls
 
 
+def _resolve_renderer(args: argparse.Namespace) -> Renderer | None:
+    """Turn the --render flag into a renderer, or exit with a helpful message if the
+    optional browser dependency isn't installed."""
+    if not getattr(args, "render", False):
+        return None
+    if not is_available():
+        print(f"\n  --render requested but unavailable.\n  {INSTALL_HINT}\n",
+              file=sys.stderr)
+        raise SystemExit(2)
+    return render_with_playwright
+
+
+def _write_html_report(report: SiteReport, url: str, path: str) -> None:
+    from datetime import datetime
+
+    from .htmlview import standalone_report
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    subtitle = f"generated {stamp} · agentview {__version__}"
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(standalone_report(report, url, subtitle))
+    print(f"  wrote HTML report -> {path}", file=sys.stderr)
+
+
 def cmd_check(args: argparse.Namespace) -> int:
+    renderer = _resolve_renderer(args)
     report = analyze_url(args.url, timeout=args.timeout,
-                         include_agent_files=not args.skip_agent_files)
+                         include_agent_files=not args.skip_agent_files,
+                         renderer=renderer)
     if args.format == "json":
         print(json.dumps(report_to_dict(report), indent=2, ensure_ascii=False))
     else:
         _print_report(report)
+    if args.html:
+        _write_html_report(report, args.url, args.html)
     return 0
 
 
 def cmd_scan(args: argparse.Namespace) -> int:
+    renderer = _resolve_renderer(args)
     urls = _load_urls(args.input)
     out = open(args.output, "w", encoding="utf-8") if args.output else sys.stdout
     counts: dict[str, int] = {}
@@ -102,7 +131,8 @@ def cmd_scan(args: argparse.Namespace) -> int:
         for i, url in enumerate(urls, 1):
             try:
                 report = analyze_url(url, timeout=args.timeout,
-                                     include_agent_files=not args.skip_agent_files)
+                                     include_agent_files=not args.skip_agent_files,
+                                     renderer=renderer)
                 record = report_to_dict(report)
                 counts[report.verdict.value] = counts.get(report.verdict.value, 0) + 1
             except Exception as exc:  # noqa: BLE001 — one bad URL must not stop the batch
@@ -260,6 +290,11 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--timeout", type=float, default=20.0)
     check.add_argument("--skip-agent-files", action="store_true",
                        help="don't fetch llms.txt / agents.json")
+    check.add_argument("--render", action="store_true",
+                       help="use a JS-rendered (headless Chromium) human baseline "
+                            "— catches SPA/JS cloaking; needs the [render] extra")
+    check.add_argument("--html", metavar="PATH",
+                       help="also write a self-contained HTML report to PATH")
     check.set_defaults(func=cmd_check)
 
     scan = sub.add_parser("scan", help="batch-scan a file of URLs into a JSONL dataset")
@@ -268,6 +303,9 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--timeout", type=float, default=20.0)
     scan.add_argument("--skip-agent-files", action="store_true",
                       help="don't fetch llms.txt / agents.json")
+    scan.add_argument("--render", action="store_true",
+                      help="use a JS-rendered (headless Chromium) human baseline "
+                           "(slower; needs the [render] extra)")
     scan.set_defaults(func=cmd_scan)
 
     stats = sub.add_parser("stats", help="aggregate a JSONL dataset into headline statistics")

@@ -1,0 +1,17 @@
+# Render.com Blueprint — one-click deploy of the public demo.
+# In the Render dashboard: New → Blueprint → point it at this repo. Render builds
+# the Dockerfile, injects $PORT, and the app reads it automatically.
+services:
+  - type: web
+    name: agentview-demo
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: AGENTVIEW_PUBLIC
+        value: "1"
+      - key: AGENTVIEW_MAX_CONCURRENCY
+        value: "4"
+      - key: AGENTVIEW_RATE_MAX
+        value: "6"

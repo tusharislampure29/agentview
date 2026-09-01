@@ -1,0 +1,25 @@
+# Keep the build context (and image) lean and free of local cruft.
+.git
+.github
+.venv
+_freshenv
+venv
+env
+dist
+build
+*.egg-info
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+docs
+study
+tests
+*.md
+!README.md
+Dockerfile
+.dockerignore
+CLAUDE.md
+.claude
+.playwright-mcp
