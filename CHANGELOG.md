@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.1.2] — 2026-09-01
+
+### Fixed
+- **`--version` reported the wrong number.** The version string was hardcoded in
+  `agentview/__init__.py` and drifted from the published package. It now derives
+  from the installed distribution metadata (single source of truth = pyproject), so
+  `agentview --version` always matches what `pip` installed.
+
 ## [0.1.1] — 2026-09-01
 
 Robustness fixes from an end-to-end real-user QA pass.
