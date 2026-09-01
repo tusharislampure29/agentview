@@ -4,7 +4,7 @@
 
 [![ci](https://github.com/tusharislampure29/agentview/actions/workflows/ci.yml/badge.svg)](https://github.com/tusharislampure29/agentview/actions)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-65%20passing-brightgreen)](tests/)
+[![tests](https://img.shields.io/badge/tests-74%20passing-brightgreen)](tests/)
 [![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 ![agentview showing a page served clean to a human and poisoned to an AI crawler](docs/assets/demo.gif)
@@ -77,6 +77,7 @@ agentview check <url>            # compare one URL across human + 7 AI identitie
 agentview check <url> --render   # …with a JS-rendered (headless-Chromium) human view
 agentview check <url> --html report.html   # …and save a shareable side-by-side report
 agentview guard <url>            # sanitize a page for safe LLM ingestion (see below)
+agentview efficacy <url>         # test whether the cloak actually manipulates a real LLM
 agentview scan  urls.txt -o out.jsonl   # batch a list into a JSONL dataset
 agentview stats out.jsonl        # aggregate a dataset into the headline numbers
                                  #   (--format markdown | json)
@@ -106,6 +107,36 @@ from agentview.guard import sanitize
 result = sanitize(html)            # result.text is safe to put in a prompt
 print(result.removed)              # everything it stripped, with reasons
 ```
+
+## Does the cloak actually work? (efficacy)
+
+Detecting a hidden instruction isn't the same as showing it *works*. A payload no
+model obeys is theatre. `agentview efficacy` closes that gap: it feeds the human
+view and the AI view of a page to a real model on the same benign browsing task,
+and reports whether the agent-only content **changed the model's answer** — not
+whether a keyword appears on the page, but whether a real assistant's output
+adopted the payload's planted goal.
+
+```bash
+agentview efficacy --demo --provider openai            # built-in synthetic cloaked page
+agentview efficacy https://example.com/article         # a live URL
+```
+
+The check is differential: the injection *succeeded* only if the planted goal (a
+brand it was told to push, say) surfaces in the AI-view answer but **not** the
+human-view answer. On the built-in example this cleanly separates a susceptible
+model from a robust one — in my testing, an older chat model recommended the
+planted "TurboShield VPN" from the hidden block while a current small model
+ignored it and reported the real ranking. That contrast is the measurement.
+
+It needs an API key (`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`); the model adapters
+are plain `httpx` calls, so there's no extra dependency. **Safety:** the harness is
+pure text-in/text-out — the model is given no tools and its output is never
+executed or acted on. It only reads the answer back to see whether it shifted.
+
+> Turning this into a corpus-wide *effective-cloaking rate* ("of pages that inject,
+> what fraction move a real model") is the natural next study — the harness is the
+> instrument; that number isn't claimed here because it hasn't been run at scale.
 
 ## The identities
 

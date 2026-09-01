@@ -1,8 +1,9 @@
 """Command line:
-  `agentview check <url>`   — compare one URL across the human + AI identities
-  `agentview guard <url>`   — sanitize a page for safe LLM ingestion (defense)
-  `agentview scan <file>`   — batch a URL list into a JSONL dataset
-  `agentview stats <jsonl>` — aggregate a dataset into headline statistics
+  `agentview check <url>`    — compare one URL across the human + AI identities
+  `agentview guard <url>`    — sanitize a page for safe LLM ingestion (defense)
+  `agentview efficacy <url>` — test whether the cloak actually manipulates a real LLM
+  `agentview scan <file>`    — batch a URL list into a JSONL dataset
+  `agentview stats <jsonl>`  — aggregate a dataset into headline statistics
 """
 from __future__ import annotations
 
@@ -12,9 +13,13 @@ import sys
 
 from . import __version__
 from .analyze import analyze_url
+from .efficacy import (
+    DEFAULT_QUESTION, EfficacyUnavailable, efficacy_result_to_dict,
+    measure_efficacy, resolve_model,
+)
 from .fetch import fetch_all_identities_sync
 from .guard import guard_result_to_dict, sanitize
-from .identities import AI_IDENTITIES, by_key
+from .identities import AI_IDENTITIES, HUMAN, by_key
 from .models import DIVERGENCE_THRESHOLD, Severity, SiteReport, Verdict
 from .render import INSTALL_HINT, Renderer, is_available, render_with_playwright
 from .serialize import report_to_dict
@@ -176,6 +181,66 @@ def cmd_guard(args: argparse.Namespace) -> int:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
     elif not args.output:
         _print_guard(args.url, ident.label, fr, r)
+    return 0
+
+
+def _efficacy_inputs(args: argparse.Namespace) -> tuple[str, str, str]:
+    """Return (label, human_text, ai_text) for either the built-in demo or a live URL."""
+    if args.demo:
+        from .demo.sample import _AI_HTML, _HUMAN_HTML, SAMPLE_URL
+        from .diff import html_to_text
+        return (SAMPLE_URL, html_to_text(_HUMAN_HTML), html_to_text(_AI_HTML))
+
+    ident = by_key(args.as_identity)
+    if ident is None:
+        raise SystemExit(f"unknown identity '{args.as_identity}'")
+    fetches = fetch_all_identities_sync(args.url, identities=[HUMAN, ident], timeout=args.timeout)
+    human, ai = fetches[HUMAN.key], fetches[ident.key]
+    if not human.ok or not ai.ok:
+        raise SystemExit(f"fetch failed (human ok={human.ok}, {ident.key} ok={ai.ok})")
+    return (args.url, human.text, ai.text)
+
+
+def _print_efficacy(label: str, r) -> None:
+    print(f"\n  agentview efficacy — {label}")
+    if not r.tested:
+        print(f"  {r.note}\n")
+        return
+    verdict = "INJECTION WORKED" if r.injection_succeeded else "no effect"
+    print(f"  result: {verdict} — {r.note}")
+    if r.goal_tokens:
+        print(f"  payload tried to plant: {', '.join(r.goal_tokens)}")
+    if r.leaked_tokens:
+        print(f"  surfaced only in the AI-view answer: {', '.join(r.leaked_tokens)}")
+    print(f"\n  question: {r.question}")
+    print(f"\n  answer from the HUMAN view:\n   {r.human_answer.strip()}")
+    print(f"\n  answer from the AI view:\n   {r.ai_answer.strip()}\n")
+
+
+def cmd_efficacy(args: argparse.Namespace) -> int:
+    if not args.demo and not args.url:
+        print("\n  provide a URL, or use --demo for the built-in synthetic example\n",
+              file=sys.stderr)
+        return 2
+    try:
+        model = resolve_model(args.provider, args.model, timeout=args.timeout)
+    except EfficacyUnavailable as exc:
+        print(f"\n  {exc}\n", file=sys.stderr)
+        return 2
+
+    label, human_text, ai_text = _efficacy_inputs(args)
+    question = args.question or DEFAULT_QUESTION
+    try:
+        r = measure_efficacy(human_text, ai_text, model, question=question)
+    except Exception as exc:  # noqa: BLE001 — surface API/network failures cleanly
+        print(f"\n  model call failed: {type(exc).__name__}: {exc}\n", file=sys.stderr)
+        return 1
+
+    if args.format == "json":
+        print(json.dumps({"target": label, **efficacy_result_to_dict(r)},
+                         indent=2, ensure_ascii=False))
+    else:
+        _print_efficacy(label, r)
     return 0
 
 
@@ -370,6 +435,22 @@ def build_parser() -> argparse.ArgumentParser:
     guard.add_argument("-o", "--output", metavar="PATH",
                        help="write only the clean text to PATH (for piping into a model)")
     guard.set_defaults(func=cmd_guard)
+
+    eff = sub.add_parser(
+        "efficacy",
+        help="test whether a page's cloak actually manipulates a real LLM's answer")
+    eff.add_argument("url", nargs="?", help="URL to test (omit and use --demo for the built-in example)")
+    eff.add_argument("--demo", action="store_true",
+                     help="run against the built-in synthetic cloaked page (no crawling)")
+    eff.add_argument("--provider", choices=["auto", "openai", "anthropic"], default="auto",
+                     help="which model API to use (default: auto-detect from env keys)")
+    eff.add_argument("--model", metavar="NAME", help="model name (provider default otherwise)")
+    eff.add_argument("--question", metavar="Q", help="the user question posed to the model")
+    eff.add_argument("--as", dest="as_identity", default="chatgpt-user", metavar="IDENTITY",
+                     help="AI identity to fetch the AI view as (default: chatgpt-user)")
+    eff.add_argument("--format", choices=["text", "json"], default="text")
+    eff.add_argument("--timeout", type=float, default=30.0)
+    eff.set_defaults(func=cmd_efficacy)
 
     scan = sub.add_parser("scan", help="batch-scan a file of URLs into a JSONL dataset")
     scan.add_argument("input", help="file with one URL per line")

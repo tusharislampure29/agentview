@@ -30,6 +30,14 @@ First public release.
   tokens) and return clean text plus a report of what was removed. Visible
   injection phrases are flagged, not deleted, unless `--aggressive` is set. Turns
   the project from a measurement into a tool you can put in front of an agent.
+- **Injection efficacy harness** — `agentview.efficacy.measure_efficacy(...)` and
+  `agentview efficacy <url>` (or `--demo`) feed the human view and the AI view to a
+  real model on one benign task and report, differentially, whether the agent-only
+  content changed the model's answer — the first measurement of whether a cloak
+  *works*, not just whether it's present. Provider adapters (OpenAI / Anthropic)
+  are plain `httpx` calls (no new dependency); the logic is unit-tested with a fake
+  model. Pure text-in/text-out — the model gets no tools and its output is never
+  executed.
 - **Study harness** — reproducible Tranco-based seed builder, a resumable
   process-pool runner, and a zero-dependency SVG chart generator.
 - **Demo** — a FastAPI paste-a-URL app showing the human view vs the AI view side
@@ -42,4 +50,4 @@ First public release.
   runs, while AI views stay raw HTML as the crawlers consume them. Catches
   SPA/JS cloaking a raw-HTML baseline is structurally blind to. Off by default so
   the engine stays a two-dependency, reproducible tool.
-- 65 offline tests; CI across Python 3.10–3.12 on Linux/Windows/macOS.
+- 74 offline tests; CI across Python 3.10–3.12 on Linux/Windows/macOS.
