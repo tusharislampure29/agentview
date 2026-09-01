@@ -6,6 +6,8 @@
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![tests](https://img.shields.io/badge/tests-96%20passing-brightgreen)](tests/)
 [![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
+[![PyPI](https://img.shields.io/badge/PyPI-agentview--cli-blue)](https://pypi.org/project/agentview-cli/)
+[![Live demo](https://img.shields.io/badge/%F0%9F%A4%97%20Spaces-Live%20demo-yellow)](https://huggingface.co/spaces/tusharislampure29/agentview)
 
 ![agentview showing a page served clean to a human and poisoned to an AI crawler](docs/assets/demo.gif)
 
@@ -22,6 +24,10 @@ The result is one verdict per site on a spectrum:
 `identical` → `benign_divergence` (paywall/block) → `manipulative` (steers the answer) → `adversarial` (hidden injection)
 
 ## Try it in two seconds
+
+**▶ Live demo, nothing to install: https://huggingface.co/spaces/tusharislampure29/agentview** — paste any URL and see the human view vs the AI view side by side, with the difference highlighted.
+
+Or run it locally:
 
 ```bash
 pip install "agentview-cli[demo]"
