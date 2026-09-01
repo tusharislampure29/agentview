@@ -32,20 +32,16 @@ def _hooks(guard: RequestGuard | None) -> dict:
     return {"request": [_check]}
 
 
-async def _fetch_one(client: httpx.AsyncClient, url: str, identity: Identity,
-                     timeout: float) -> FetchResult:
-    headers = {
-        "User-Agent": identity.user_agent,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        **identity.extra_headers,
-    }
+async def _fetch_headers(client: httpx.AsyncClient, url: str, key: str,
+                         headers: dict[str, str], timeout: float) -> FetchResult:
+    """Fetch ``url`` with an exact, complete header set. This is the single request
+    primitive; identity fetches and header-attribution probes both go through it."""
     start = time.perf_counter()
     try:
         resp = await client.get(url, headers=headers, timeout=timeout, follow_redirects=True)
         html = resp.text[:_MAX_HTML]
         return FetchResult(
-            identity=identity.key,
+            identity=key,
             url=url,
             ok=True,
             status=resp.status_code,
@@ -58,10 +54,21 @@ async def _fetch_one(client: httpx.AsyncClient, url: str, identity: Identity,
         )
     except Exception as exc:  # noqa: BLE001 — record every failure mode, never raise
         return FetchResult(
-            identity=identity.key, url=url, ok=False,
+            identity=key, url=url, ok=False,
             elapsed_ms=int((time.perf_counter() - start) * 1000),
             error=f"{type(exc).__name__}: {exc}",
         )
+
+
+async def _fetch_one(client: httpx.AsyncClient, url: str, identity: Identity,
+                     timeout: float) -> FetchResult:
+    headers = {
+        "User-Agent": identity.user_agent,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        **identity.extra_headers,
+    }
+    return await _fetch_headers(client, url, identity.key, headers, timeout)
 
 
 async def fetch_all_identities(url: str, identities: list[Identity] | None = None,
@@ -77,3 +84,24 @@ async def fetch_all_identities(url: str, identities: list[Identity] | None = Non
 
 def fetch_all_identities_sync(url: str, **kwargs) -> dict[str, FetchResult]:
     return asyncio.run(fetch_all_identities(url, **kwargs))
+
+
+async def fetch_header_variants(url: str, variants: dict[str, dict[str, str]],
+                                timeout: float = DEFAULT_TIMEOUT,
+                                request_guard: RequestGuard | None = None
+                                ) -> dict[str, FetchResult]:
+    """Fetch ``url`` once per named header variant, concurrently and independently.
+
+    ``variants`` maps a probe key to the *complete* header set to send. Used by the
+    attribution prober to flip one request attribute at a time and see which flip a
+    cloaking site keys on."""
+    async with httpx.AsyncClient(verify=True, event_hooks=_hooks(request_guard)) as client:
+        keys = list(variants)
+        results = await asyncio.gather(
+            *(_fetch_headers(client, url, k, variants[k], timeout) for k in keys))
+    return {r.identity: r for r in results}
+
+
+def fetch_header_variants_sync(url: str, variants: dict[str, dict[str, str]],
+                               **kwargs) -> dict[str, FetchResult]:
+    return asyncio.run(fetch_header_variants(url, variants, **kwargs))

@@ -1,5 +1,6 @@
 """Command line:
   `agentview check <url>`    — compare one URL across the human + AI identities
+  `agentview why <url>`      — attribute *how* a cloaking site detects the bot
   `agentview guard <url>`    — sanitize a page for safe LLM ingestion (defense)
   `agentview efficacy <url>` — test whether the cloak actually manipulates a real LLM
   `agentview scan <file>`    — batch a URL list into a JSONL dataset
@@ -13,6 +14,7 @@ import sys
 
 from . import __version__
 from .analyze import analyze_url
+from .attribution import attribute, attribution_to_dict
 from .efficacy import (
     DEFAULT_QUESTION, EfficacyUnavailable, efficacy_result_to_dict,
     measure_efficacy, resolve_model,
@@ -181,6 +183,36 @@ def cmd_guard(args: argparse.Namespace) -> int:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
     elif not args.output:
         _print_guard(args.url, ident.label, fr, r)
+    return 0
+
+
+def _print_attribution(r) -> None:
+    print(f"\n  agentview why — {r.url}")
+    print(f"  probed with crawler UA: {r.crawler_key}\n")
+    if r.cloaks:
+        print("  this site serves the bot a different page. it keys on:")
+        for t in r.triggers:
+            print(f"   • {t}")
+    else:
+        print("  no User-Agent / header-based cloaking detected.")
+
+    print("\n  probe divergence vs the browser baseline:")
+    for key, diverged in r.diverged.items():
+        label = r.labels.get(key, key)
+        flag = "  <-- different" if diverged else "  same"
+        print(f"   [{key:>18}] {label:<40}{flag}")
+
+    for note in r.notes:
+        print(f"\n  note: {note}")
+    print()
+
+
+def cmd_why(args: argparse.Namespace) -> int:
+    r = attribute(args.url, crawler=args.crawler, timeout=args.timeout)
+    if args.format == "json":
+        print(json.dumps(attribution_to_dict(r), indent=2, ensure_ascii=False))
+    else:
+        _print_attribution(r)
     return 0
 
 
@@ -435,6 +467,17 @@ def build_parser() -> argparse.ArgumentParser:
     guard.add_argument("-o", "--output", metavar="PATH",
                        help="write only the clean text to PATH (for piping into a model)")
     guard.set_defaults(func=cmd_guard)
+
+    why = sub.add_parser(
+        "why",
+        help="attribute how a cloaking site detects the bot (which request signal it keys on)")
+    why.add_argument("url")
+    why.add_argument("--crawler", default="gptbot", metavar="KEY",
+                     help=f"named crawler UA to probe with (default: gptbot); "
+                          f"one of: {', '.join(i.key for i in AI_IDENTITIES)}")
+    why.add_argument("--format", choices=["text", "json"], default="text")
+    why.add_argument("--timeout", type=float, default=20.0)
+    why.set_defaults(func=cmd_why)
 
     eff = sub.add_parser(
         "efficacy",

@@ -30,6 +30,11 @@ First public release.
   tokens) and return clean text plus a report of what was removed. Visible
   injection phrases are flagged, not deleted, unless `--aggressive` is set. Turns
   the project from a measurement into a tool you can put in front of an agent.
+- **Cloaking-mechanism attribution** — `agentview.attribution.attribute(url)` and
+  `agentview why <url>` flip one request attribute at a time (named crawler UA vs a
+  generic bot UA, missing Accept-Language, missing browser client-hints) and report
+  which one a cloaking site keys on — or that no single flip triggers it. Explains
+  *how* a site detects the bot, not just *that* it does.
 - **Injection efficacy harness** — `agentview.efficacy.measure_efficacy(...)` and
   `agentview efficacy <url>` (or `--demo`) feed the human view and the AI view to a
   real model on one benign task and report, differentially, whether the agent-only
@@ -50,4 +55,4 @@ First public release.
   runs, while AI views stay raw HTML as the crawlers consume them. Catches
   SPA/JS cloaking a raw-HTML baseline is structurally blind to. Off by default so
   the engine stays a two-dependency, reproducible tool.
-- 74 offline tests; CI across Python 3.10–3.12 on Linux/Windows/macOS.
+- 84 offline tests; CI across Python 3.10–3.12 on Linux/Windows/macOS.

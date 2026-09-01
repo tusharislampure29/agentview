@@ -4,7 +4,7 @@
 
 [![ci](https://github.com/tusharislampure29/agentview/actions/workflows/ci.yml/badge.svg)](https://github.com/tusharislampure29/agentview/actions)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-74%20passing-brightgreen)](tests/)
+[![tests](https://img.shields.io/badge/tests-84%20passing-brightgreen)](tests/)
 [![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 ![agentview showing a page served clean to a human and poisoned to an AI crawler](docs/assets/demo.gif)
@@ -76,12 +76,35 @@ The whole result hinges on not crying wolf, so the analysis is **differential**:
 agentview check <url>            # compare one URL across human + 7 AI identities
 agentview check <url> --render   # …with a JS-rendered (headless-Chromium) human view
 agentview check <url> --html report.html   # …and save a shareable side-by-side report
+agentview why <url>              # attribute *how* a cloaking site detects the bot
 agentview guard <url>            # sanitize a page for safe LLM ingestion (see below)
 agentview efficacy <url>         # test whether the cloak actually manipulates a real LLM
 agentview scan  urls.txt -o out.jsonl   # batch a list into a JSONL dataset
 agentview stats out.jsonl        # aggregate a dataset into the headline numbers
                                  #   (--format markdown | json)
 ```
+
+## Why does a site cloak? (attribution)
+
+`check` tells you *whether* a site serves the bot a different page. `why` tells you
+*how* it decided you were a bot. It flips one request attribute at a time — from
+browser-like toward bot-like — and reports which flip triggers the divergence:
+
+```bash
+agentview why https://www.reddit.com
+```
+
+```text
+  this site serves the bot a different page. it keys on:
+   • the specific crawler name in the User-Agent (a generic bot UA is served the human page)
+```
+
+The probes isolate the trigger: the **named crawler** vs any **generic "bot" UA**,
+a **missing `Accept-Language`**, or **missing browser client-hints** (`Sec-Fetch-*`).
+If no single flip fires but a realistic bot does, it reports a *combination*. (That
+Reddit result is a point-in-time probe — the value is that you can re-run it on any
+URL.) Like everything here it's a lower bound: TLS/IP/JS fingerprinting is invisible
+to a header prober, and the tool says so instead of implying the list is complete.
 
 ## Use it as a defense, not just a measurement
 
