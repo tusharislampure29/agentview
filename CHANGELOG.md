@@ -30,6 +30,11 @@ First public release.
   tokens) and return clean text plus a report of what was removed. Visible
   injection phrases are flagged, not deleted, unless `--aggressive` is set. Turns
   the project from a measurement into a tool you can put in front of an agent.
+- **Longitudinal watch (cloaking canary)** — `agentview.watch.watch_once(...)` and
+  `agentview watch <input>` keep a small local JSON snapshot of each site's verdict
+  and signals and, on each run, report only what changed since last time — flagging
+  an *escalation* when a site gets more agent-targeting. `--fail-on-escalation`
+  exits nonzero for cron/CI alerting. Turns a one-shot check into a monitor.
 - **Cloaking-mechanism attribution** — `agentview.attribution.attribute(url)` and
   `agentview why <url>` flip one request attribute at a time (named crawler UA vs a
   generic bot UA, missing Accept-Language, missing browser client-hints) and report
@@ -55,4 +60,4 @@ First public release.
   runs, while AI views stay raw HTML as the crawlers consume them. Catches
   SPA/JS cloaking a raw-HTML baseline is structurally blind to. Off by default so
   the engine stays a two-dependency, reproducible tool.
-- 84 offline tests; CI across Python 3.10–3.12 on Linux/Windows/macOS.
+- 96 offline tests; CI across Python 3.10–3.12 on Linux/Windows/macOS.

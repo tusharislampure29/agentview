@@ -3,6 +3,7 @@
   `agentview why <url>`      — attribute *how* a cloaking site detects the bot
   `agentview guard <url>`    — sanitize a page for safe LLM ingestion (defense)
   `agentview efficacy <url>` — test whether the cloak actually manipulates a real LLM
+  `agentview watch <input>`  — track sites over time and alert when one starts cloaking
   `agentview scan <file>`    — batch a URL list into a JSONL dataset
   `agentview stats <jsonl>`  — aggregate a dataset into headline statistics
 """
@@ -10,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 from . import __version__
@@ -26,6 +28,7 @@ from .models import DIVERGENCE_THRESHOLD, Severity, SiteReport, Verdict
 from .render import INSTALL_HINT, Renderer, is_available, render_with_playwright
 from .serialize import report_to_dict
 from .stats import summarize
+from .watch import WatchRun, watch_once
 
 _VERDICT_LABEL = {
     Verdict.IDENTICAL: "IDENTICAL — human and AI see the same page",
@@ -276,6 +279,52 @@ def cmd_efficacy(args: argparse.Namespace) -> int:
     return 0
 
 
+def _watch_urls(input_arg: str) -> list[str]:
+    if os.path.isfile(input_arg):
+        return _load_urls(input_arg)
+    return [input_arg if input_arg.startswith("http") else "https://" + input_arg]
+
+
+def _print_watch(run: WatchRun, state_path: str, total: int) -> None:
+    print(f"\n  agentview watch — {total} site(s), state: {state_path}\n")
+    print(f"  baselined (first seen): {len(run.baselined)}")
+    print(f"  unchanged:              {len(run.unchanged)}")
+    print(f"  changed:                {len({c.url for c in run.changes})}")
+    if run.changes:
+        print("\n  changes since last run:")
+        for c in run.changes:
+            mark = "  !! ESCALATION" if c.escalation else "  •           "
+            print(f"   {mark}  {c.url}\n                    {c.detail}")
+    elif not run.baselined:
+        print("\n  no changes.")
+    print()
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    urls = _watch_urls(args.input)
+
+    def analyzer(url: str):
+        return analyze_url(url, timeout=args.timeout,
+                           include_agent_files=not args.skip_agent_files)
+
+    run = watch_once(urls, args.state, analyzer)
+
+    if args.format == "json":
+        print(json.dumps({
+            "state": args.state,
+            "baselined": run.baselined,
+            "unchanged": run.unchanged,
+            "changes": [{"url": c.url, "kind": c.kind, "detail": c.detail,
+                         "escalation": c.escalation} for c in run.changes],
+        }, indent=2, ensure_ascii=False))
+    else:
+        _print_watch(run, args.state, len(urls))
+
+    if args.fail_on_escalation and run.escalations:
+        return 3
+    return 0
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
     renderer = _resolve_renderer(args)
     urls = _load_urls(args.input)
@@ -494,6 +543,20 @@ def build_parser() -> argparse.ArgumentParser:
     eff.add_argument("--format", choices=["text", "json"], default="text")
     eff.add_argument("--timeout", type=float, default=30.0)
     eff.set_defaults(func=cmd_efficacy)
+
+    watch = sub.add_parser(
+        "watch",
+        help="track a URL (or a file of URLs) over time; report/alert on new cloaking")
+    watch.add_argument("input", help="a URL, or a file with one URL per line")
+    watch.add_argument("--state", default=".agentview-watch.json", metavar="PATH",
+                       help="JSON snapshot file (default: .agentview-watch.json)")
+    watch.add_argument("--timeout", type=float, default=20.0)
+    watch.add_argument("--skip-agent-files", action="store_true",
+                       help="don't fetch llms.txt / agents.json")
+    watch.add_argument("--fail-on-escalation", action="store_true",
+                       help="exit 3 if any site escalated (for cron/CI alerting)")
+    watch.add_argument("--format", choices=["text", "json"], default="text")
+    watch.set_defaults(func=cmd_watch)
 
     scan = sub.add_parser("scan", help="batch-scan a file of URLs into a JSONL dataset")
     scan.add_argument("input", help="file with one URL per line")

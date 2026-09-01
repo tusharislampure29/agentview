@@ -26,3 +26,7 @@ Thumbs.db
 # study working files (keep the published dataset + seeds, ignore scratch runs)
 study/results/test*.jsonl
 study/results/scratch*
+
+# local `agentview watch` snapshot state
+.agentview-watch.json
+*.agentview-watch.json

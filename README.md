@@ -4,7 +4,7 @@
 
 [![ci](https://github.com/tusharislampure29/agentview/actions/workflows/ci.yml/badge.svg)](https://github.com/tusharislampure29/agentview/actions)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-84%20passing-brightgreen)](tests/)
+[![tests](https://img.shields.io/badge/tests-96%20passing-brightgreen)](tests/)
 [![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 ![agentview showing a page served clean to a human and poisoned to an AI crawler](docs/assets/demo.gif)
@@ -79,10 +79,33 @@ agentview check <url> --html report.html   # …and save a shareable side-by-sid
 agentview why <url>              # attribute *how* a cloaking site detects the bot
 agentview guard <url>            # sanitize a page for safe LLM ingestion (see below)
 agentview efficacy <url>         # test whether the cloak actually manipulates a real LLM
+agentview watch urls.txt         # track sites over time; alert when one starts cloaking
 agentview scan  urls.txt -o out.jsonl   # batch a list into a JSONL dataset
 agentview stats out.jsonl        # aggregate a dataset into the headline numbers
                                  #   (--format markdown | json)
 ```
+
+## Catch it when it *starts* (watch)
+
+A single check is a snapshot, but cloaking is a change: a site that serves everyone
+the same page today can start poisoning the bot's view tomorrow, silently, on a
+200 OK. `watch` is the canary. It keeps a small local snapshot of each site's
+verdict and signals and, on every run, reports only what changed — flagging an
+**escalation** when a site gets more agent-targeting:
+
+```bash
+agentview watch urls.txt                      # first run baselines; later runs diff
+agentview watch urls.txt --fail-on-escalation # exit 3 on new cloaking (for cron/CI)
+```
+
+```text
+   !! ESCALATION  https://example.com/article
+                  verdict identical -> adversarial
+```
+
+Run it from cron and a site flipping `identical → adversarial`, or newly shipping an
+`llms.txt` full of manipulation directives, becomes something you can page on. State
+is a plain JSON file, so it's diffable and commit-free.
 
 ## Why does a site cloak? (attribution)
 
