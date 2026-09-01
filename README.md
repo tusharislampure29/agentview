@@ -4,7 +4,7 @@
 
 [![ci](https://github.com/tusharislampure29/agentview/actions/workflows/ci.yml/badge.svg)](https://github.com/tusharislampure29/agentview/actions)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-55%20passing-brightgreen)](tests/)
+[![tests](https://img.shields.io/badge/tests-65%20passing-brightgreen)](tests/)
 [![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 ![agentview showing a page served clean to a human and poisoned to an AI crawler](docs/assets/demo.gif)
@@ -70,15 +70,41 @@ The whole result hinges on not crying wolf, so the analysis is **differential**:
  + fetch llms.txt / agents.json / ai.txt and audit those directly
 ```
 
-## Three commands
+## The commands
 
 ```bash
 agentview check <url>            # compare one URL across human + 7 AI identities
 agentview check <url> --render   # …with a JS-rendered (headless-Chromium) human view
 agentview check <url> --html report.html   # …and save a shareable side-by-side report
+agentview guard <url>            # sanitize a page for safe LLM ingestion (see below)
 agentview scan  urls.txt -o out.jsonl   # batch a list into a JSONL dataset
 agentview stats out.jsonl        # aggregate a dataset into the headline numbers
                                  #   (--format markdown | json)
+```
+
+## Use it as a defense, not just a measurement
+
+Measuring the problem is half of it. If you're *building* an agent — a browsing
+tool, a RAG ingest, an RSS-to-LLM pipeline — you can also use agentview to
+**neutralize** agent-targeted content before it reaches the model:
+
+```bash
+agentview guard https://example.com/article        # report what it would strip
+agentview guard https://example.com/article -o clean.txt   # emit only the safe text
+```
+
+`guard` fetches the page *as an AI crawler* (so it receives the bot-targeted
+version), then strips what is delivered to the model but hidden from a human —
+invisible-unicode smuggling, CSS-hidden blocks, instruction-bearing HTML comments,
+and chat-template control tokens — and hands back clean text plus a report of
+exactly what it removed. Visible injection phrases (which also appear in honest
+writing *about* prompt injection) are **flagged**, not deleted, unless you pass
+`--aggressive`. It's a plain function too:
+
+```python
+from agentview.guard import sanitize
+result = sanitize(html)            # result.text is safe to put in a prompt
+print(result.removed)              # everything it stripped, with reasons
 ```
 
 ## The identities

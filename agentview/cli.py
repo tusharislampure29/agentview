@@ -1,5 +1,6 @@
 """Command line:
   `agentview check <url>`   — compare one URL across the human + AI identities
+  `agentview guard <url>`   — sanitize a page for safe LLM ingestion (defense)
   `agentview scan <file>`   — batch a URL list into a JSONL dataset
   `agentview stats <jsonl>` — aggregate a dataset into headline statistics
 """
@@ -11,7 +12,9 @@ import sys
 
 from . import __version__
 from .analyze import analyze_url
-from .identities import AI_IDENTITIES
+from .fetch import fetch_all_identities_sync
+from .guard import guard_result_to_dict, sanitize
+from .identities import AI_IDENTITIES, by_key
 from .models import DIVERGENCE_THRESHOLD, Severity, SiteReport, Verdict
 from .render import INSTALL_HINT, Renderer, is_available, render_with_playwright
 from .serialize import report_to_dict
@@ -119,6 +122,60 @@ def cmd_check(args: argparse.Namespace) -> int:
         _print_report(report)
     if args.html:
         _write_html_report(report, args.url, args.html)
+    return 0
+
+
+_GUARD_DEFAULT_IDENTITY = "chatgpt-user"
+
+
+def _print_guard(url: str, ident_label: str, fr, r) -> None:
+    print(f"\n  agentview guard — {url}")
+    print(f"  fetched as: {ident_label}  [status {fr.status}, {fr.content_length}B]\n")
+    print(f"  sanitized: {r.original_text_len} -> {r.clean_text_len} chars "
+          f"({r.invisible_chars_removed} invisible char(s), "
+          f"{r.hidden_blocks_removed} hidden block(s), {r.comments_removed} comment(s) seen)")
+
+    if r.removed:
+        print(f"\n  removed {len(r.removed)} item(s) aimed at the model:")
+        for x in r.removed:
+            print(f"   [{x.kind:>20}] {x.snippet[:100]}")
+    if r.flagged:
+        print(f"\n  flagged {len(r.flagged)} suspicious visible item(s) — left in place "
+              f"(use --aggressive to redact):")
+        for x in r.flagged:
+            print(f"   [{x.kind:>20}] {x.snippet[:100]}")
+    if r.is_clean:
+        print("\n  clean — nothing agent-targeted found.")
+
+    preview = r.text[:500]
+    print("\n  clean text preview:")
+    print(f"   {preview}{' …' if len(r.text) > 500 else ''}\n")
+
+
+def cmd_guard(args: argparse.Namespace) -> int:
+    ident = by_key(args.as_identity)
+    if ident is None:
+        print(f"\n  unknown identity '{args.as_identity}'. Options: "
+              f"{', '.join(i.key for i in AI_IDENTITIES)}\n", file=sys.stderr)
+        return 2
+    fetches = fetch_all_identities_sync(args.url, identities=[ident], timeout=args.timeout)
+    fr = fetches[ident.key]
+    if not fr.ok:
+        print(f"\n  fetch failed ({fr.error})\n", file=sys.stderr)
+        return 1
+
+    r = sanitize(fr.html, aggressive=args.aggressive)
+
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as fh:
+            fh.write(r.text)
+        print(f"  wrote {r.clean_text_len} chars of clean text -> {args.output}", file=sys.stderr)
+
+    if args.format == "json":
+        payload = {"url": args.url, "fetched_as": ident.key, **guard_result_to_dict(r)}
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+    elif not args.output:
+        _print_guard(args.url, ident.label, fr, r)
     return 0
 
 
@@ -296,6 +353,23 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--html", metavar="PATH",
                        help="also write a self-contained HTML report to PATH")
     check.set_defaults(func=cmd_check)
+
+    guard = sub.add_parser(
+        "guard",
+        help="sanitize a page for safe LLM ingestion (strip agent-targeted payloads)")
+    guard.add_argument("url")
+    guard.add_argument("--as", dest="as_identity", default=_GUARD_DEFAULT_IDENTITY,
+                       metavar="IDENTITY",
+                       help=f"AI identity to fetch as (default: {_GUARD_DEFAULT_IDENTITY}); "
+                            f"one of: {', '.join(i.key for i in AI_IDENTITIES)}")
+    guard.add_argument("--aggressive", action="store_true",
+                       help="also redact visible injection phrases / manipulation directives, "
+                            "not just flag them")
+    guard.add_argument("--format", choices=["text", "json"], default="text")
+    guard.add_argument("--timeout", type=float, default=20.0)
+    guard.add_argument("-o", "--output", metavar="PATH",
+                       help="write only the clean text to PATH (for piping into a model)")
+    guard.set_defaults(func=cmd_guard)
 
     scan = sub.add_parser("scan", help="batch-scan a file of URLs into a JSONL dataset")
     scan.add_argument("input", help="file with one URL per line")

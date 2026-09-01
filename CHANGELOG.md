@@ -21,8 +21,15 @@ First public release.
   `agents.json`, and the well-known variants, rejecting SPA soft-404s.
 - **CLI** — `agentview check <url>` (single-URL report; `--html PATH` writes a
   self-contained shareable report, `--render` uses the JS-rendered baseline),
+  `agentview guard <url>` (sanitize a page for safe LLM ingestion),
   `agentview scan <file>` (batch → JSONL dataset), `agentview stats <jsonl>`
   (headline statistics as text, JSON, or Markdown).
+- **Guard (defense)** — `agentview.guard.sanitize(html)` and `agentview guard
+  <url>` strip content aimed at the model but hidden from a human (invisible
+  unicode, CSS-hidden blocks, instruction-bearing comments, chat-template control
+  tokens) and return clean text plus a report of what was removed. Visible
+  injection phrases are flagged, not deleted, unless `--aggressive` is set. Turns
+  the project from a measurement into a tool you can put in front of an agent.
 - **Study harness** — reproducible Tranco-based seed builder, a resumable
   process-pool runner, and a zero-dependency SVG chart generator.
 - **Demo** — a FastAPI paste-a-URL app showing the human view vs the AI view side
@@ -35,4 +42,4 @@ First public release.
   runs, while AI views stay raw HTML as the crawlers consume them. Catches
   SPA/JS cloaking a raw-HTML baseline is structurally blind to. Off by default so
   the engine stays a two-dependency, reproducible tool.
-- 55 offline tests; CI across Python 3.10–3.12 on Linux/Windows/macOS.
+- 65 offline tests; CI across Python 3.10–3.12 on Linux/Windows/macOS.

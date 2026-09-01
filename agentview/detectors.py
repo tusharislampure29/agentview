@@ -43,6 +43,18 @@ def _is_tag_char(ch: str) -> bool:
     return 0xE0000 <= ord(ch) <= 0xE007F
 
 
+def is_smuggling_char(ch: str) -> bool:
+    """True for a character that renders blank/near-blank to a human but is read by
+    a model — the raw material of unicode-smuggled instructions. Single predicate
+    shared by the scanner and the guard so they classify identically."""
+    return ch in _INVISIBLE or ch in _BIDI or _is_tag_char(ch)
+
+
+def char_name(ch: str) -> str:
+    """Human-readable name for a smuggling character (for report snippets)."""
+    return _INVISIBLE.get(ch) or ("bidi control" if ch in _BIDI else "unicode tag char")
+
+
 # --- text patterns ------------------------------------------------------------
 # Imperative overrides. High-signal when shown only to the agent or hidden, but
 # they also occur in prose that legitimately *discusses* prompt injection (docs,
