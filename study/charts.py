@@ -39,9 +39,11 @@ def _esc(s: str) -> str:
 
 
 def _hbars(title: str, subtitle: str, rows: list[tuple[str, float, str, str]],
-           width: int = 720) -> str:
+           width: int = 920) -> str:
     """rows = [(label, value_0_100, colour, right_annotation)]."""
-    pad_l, pad_r, pad_t, row_h, gap = 240, 70, 74, 30, 14
+    # pad_r leaves room for the right-hand "N (pct%)" annotation; pad_l for the
+    # longest row label. Both were undersized before and clipped the text.
+    pad_l, pad_r, pad_t, row_h, gap = 250, 200, 74, 30, 14
     n = len(rows)
     height = pad_t + n * (row_h + gap) + 24
     track_w = width - pad_l - pad_r
@@ -52,9 +54,9 @@ def _hbars(title: str, subtitle: str, rows: list[tuple[str, float, str, str]],
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
         f'viewBox="0 0 {width} {height}" font-family="-apple-system,Segoe UI,Roboto,sans-serif">',
         f'<rect width="{width}" height="{height}" fill="white"/>',
-        f'<text x="{pad_l}" y="34" font-size="20" font-weight="700" '
+        f'<text x="24" y="34" font-size="20" font-weight="700" '
         f'fill="{_C["text"]}">{_esc(title)}</text>',
-        f'<text x="{pad_l}" y="56" font-size="13" fill="{_C["muted"]}">{_esc(subtitle)}</text>',
+        f'<text x="24" y="56" font-size="13" fill="{_C["muted"]}">{_esc(subtitle)}</text>',
     ]
     for i, (label, value, colour, annot) in enumerate(rows):
         y = pad_t + i * (row_h + gap)
